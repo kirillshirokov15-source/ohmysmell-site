@@ -1137,7 +1137,9 @@
       <span class="cart-subtotal-label">Итого</span>
       <span class="cart-subtotal-amount" id="cartTotal">0 ₽</span>
     </div>
-    <button class="checkout-btn">Оформить заказ</button>
+    <button class="checkout-btn" onclick="goToCheckout()">
+    Оформить заказ
+</button>
     <button class="cart-continue" onclick="closeCart()">Продолжить покупки</button>
   </div>
 </div>
@@ -1689,6 +1691,9 @@ document.querySelectorAll('button, a, .product-card, .filter-btn').forEach(el =>
 
 // ─── INIT ───
 renderProducts('all');
+function goToCheckout() {
+    window.location.href = "checkout.html";
+}
 </script>
 </body>
 </html>
