@@ -1,3 +1,5 @@
+#cd C:\Users\kater\ohmysmell-site
+#python -m http.server 5500
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -70,6 +72,36 @@
       color: #7a5a2e;
       text-decoration: none;
     }
+    .order-summary {
+  margin-bottom: 30px;
+  padding: 20px;
+  border: 1px solid #d8c7b0;
+  background: #faf8f5;
+}
+
+.order-summary h2 {
+  margin-top: 0;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.checkout-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #e8e0d5;
+}
+
+.checkout-item:last-child {
+  border-bottom: none;
+}
+
+.checkout-total {
+  margin-top: 18px;
+  font-size: 20px;
+  font-weight: bold;
+}
   </style>
 </head>
 
@@ -78,7 +110,16 @@
     <a href="index.html" class="back-link">← Вернуться в магазин</a>
 
     <h1>Оформление заказа</h1>
+<div class="order-summary">
+    <h2>Ваш заказ</h2>
 
+    <div id="checkout-items"></div>
+
+    <div class="checkout-total">
+        Итого:
+        <span id="checkout-total">0 ₽</span>
+    </div>
+</div>
     <form id="checkoutForm">
       <div class="field">
         <label for="customerName">Имя</label>
@@ -122,5 +163,100 @@
       <button type="submit">Подтвердить заказ</button>
     </form>
   </main>
+  <script>
+const cart = JSON.parse(localStorage.getItem("ohmysmell_cart") || "[]");
+
+const itemsContainer = document.getElementById("checkout-items");
+const totalElement = document.getElementById("checkout-total");
+
+function formatPrice(price) {
+    return new Intl.NumberFormat("ru-RU").format(price) + " ₽";
+}
+
+function renderCheckout() {
+
+    if (cart.length === 0) {
+        itemsContainer.innerHTML = "<p>Корзина пуста.</p>";
+        return;
+    }
+
+    let total = 0;
+
+    cart.forEach(item => {
+
+        const qty = item.qty || item.quantity || 1;
+        const sum = item.price * qty;
+
+        total += sum;
+
+        itemsContainer.innerHTML += `
+            <div class="checkout-item">
+                <div>
+                    <strong>${item.brand}</strong><br>
+                    ${item.name}<br>
+                    ${qty} × ${formatPrice(item.price)}
+                </div>
+
+                <strong>${formatPrice(sum)}</strong>
+            </div>
+        `;
+    });
+
+    totalElement.textContent = formatPrice(total);
+}
+
+renderCheckout();
+const ORDER_API_URL = "https://ohmysmell-backend-production.up.railway.app/orders";
+
+const checkoutForm = document.getElementById("checkoutForm");
+
+checkoutForm.addEventListener("submit", async function(event) {
+    event.preventDefault();
+
+    if (cart.length === 0) {
+        alert("Корзина пуста.");
+        return;
+    }
+
+    const orderData = {
+        customer_name: document.getElementById("customerName").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        telegram: document.getElementById("telegram").value.trim() || null,
+        comment: document.getElementById("comment").value.trim() || null,
+        items: cart.map(item => ({
+            id: item.id,
+            qty: item.qty || item.quantity || 1
+        }))
+    };
+
+    console.log("Отправляем заказ:", orderData);
+
+    try {
+        const response = await fetch(ORDER_API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(orderData)
+        });
+
+        const data = await response.json();
+
+        console.log("Ответ backend:", data);
+
+        if (!response.ok) {
+            console.error("Ошибка backend:", data);
+            alert("Не удалось оформить заказ.");
+            return;
+        }
+
+        alert("Заказ успешно отправлен!");
+
+    } catch (error) {
+        console.error("Ошибка отправки заказа:", error);
+        alert("Не удалось связаться с сервером.");
+    }
+});
+</script>
 </body>
 </html>

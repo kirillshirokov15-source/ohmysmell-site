@@ -1223,10 +1223,7 @@
       <h2 class="section-title">Избранные<br><em>ароматы</em></h2>
     </div>
     <div class="filter-row">
-      <button class="filter-btn active" onclick="filterProducts('all', this)">Все</button>
-      <button class="filter-btn" onclick="filterProducts('women', this)">Женские</button>
-      <button class="filter-btn" onclick="filterProducts('men', this)">Мужские</button>
-      <button class="filter-btn" onclick="filterProducts('unisex', this)">Унисекс</button>
+      <button class="filter-btn active" onclick="filterProducts('all', this)">Все товары</button>
     </div>
   </div>
 
@@ -1473,50 +1470,66 @@
 
 <script>
 // ─── PRODUCTS DATA ───
-// img: путь к фото товара, например 'images/baccarat-rouge.jpg'
-// Если img не указан или файл не найден — покажется красивая заглушка с названием
-const products = [
-  {
-    id: 1, brand: 'Maison Francis', name: 'Baccarat Rouge 540',
-    notes: 'Жасмин · Шафран · Амброксан', price: 18900, oldPrice: null,
-    tag: null, gender: 'unisex', img: 'images/product-1.jpg', vol: '70 мл'
-  },
-  {
-    id: 2, brand: 'Tom Ford', name: 'Oud Wood',
-    notes: 'Уд · Сандал · Ваниль', price: 21500, oldPrice: 25000,
-    tag: 'Sale', gender: 'unisex', img: 'images/product-2.jpg', vol: '50 мл'
-  },
-  {
-    id: 3, brand: 'Parfums de Marly', name: 'Delina',
-    notes: 'Роза · Личи · Пион', price: 16800, oldPrice: null,
-    tag: 'Хит', gender: 'women', img: 'images/product-3.jpg', vol: '75 мл'
-  },
-  {
-    id: 4, brand: 'Initio', name: 'Oud for Greatness',
-    notes: 'Уд · Мускус · Пачули', price: 24500, oldPrice: null,
-    tag: 'Новинка', gender: 'men', img: 'images/product-4.jpg', vol: '90 мл'
-  },
-  {
-    id: 5, brand: 'Creed', name: 'Aventus',
-    notes: 'Берёза · Ананас · Мускус', price: 28000, oldPrice: null,
-    tag: null, gender: 'men', img: 'images/product-5.jpg', vol: '100 мл'
-  },
-  {
-    id: 6, brand: 'Xerjoff', name: 'Naxos',
-    notes: 'Лаванда · Тонка · Табак', price: 19200, oldPrice: 22000,
-    tag: 'Sale', gender: 'unisex', img: 'images/product-6.jpg', vol: '50 мл'
-  },
-  {
-    id: 7, brand: 'Amouage', name: 'Interlude',
-    notes: 'Ладан · Смирна · Кашемир', price: 23000, oldPrice: null,
-    tag: null, gender: 'men', img: 'images/product-7.jpg', vol: '100 мл'
-  },
-  {
-    id: 8, brand: 'Byredo', name: 'Gypsy Water',
-    notes: 'Сосна · Ваниль · Бергамот', price: 15600, oldPrice: null,
-    tag: 'Хит', gender: 'unisex', img: 'images/product-8.jpg', vol: '100 мл'
+let products = [];
+
+const API_URL = 'https://ohmysmell-backend-production.up.railway.app/products';
+
+async function loadProducts() {
+  const grid = document.getElementById('productsGrid');
+
+  grid.innerHTML = `
+    <div style="padding:40px;font-size:13px;color:#9A8C7E;">
+      Загружаем каталог…
+    </div>
+  `;
+
+  try {
+    const response = await fetch(API_URL);
+
+    if (!response.ok) {
+      throw new Error(`Ошибка API: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    products = data.products
+      .filter(product => product.price !== null)
+      .map(product => ({
+        id: product.id,
+        brand: getBrand(product.name),
+        name: product.name,
+        notes: product.article ? `Артикул: ${product.article.trim()}` : '',
+        price: product.price,
+        oldPrice: null,
+        tag: product.available ? null : 'Нет в наличии',
+        gender: 'all',
+        img: '',
+        vol: '',
+        available: product.available,
+        totalAvailable: product.total_available
+      }));
+
+  renderProducts('all');
+
+
+  } catch (error) {
+    console.error(error);
+
+    grid.innerHTML = `
+      <div style="padding:40px;font-size:13px;color:#9A8C7E;">
+        Не удалось загрузить каталог. Попробуйте обновить страницу.
+      </div>
+    `;
   }
-];
+}
+
+function getBrand(name) {
+  if (!name) return 'Oh My Smell';
+
+  const words = name.trim().split(/\s+/);
+
+  return words.slice(0, Math.min(2, words.length)).join(' ');
+}  
 
 let cart = [];
 let currentFilter = 'all';
@@ -1525,43 +1538,65 @@ function formatPrice(n) {
   return n.toLocaleString('ru-RU') + ' ₽';
 }
 
-function renderProducts(filter) {
+function renderProducts(filter = 'all') {
   const grid = document.getElementById('productsGrid');
-  const filtered = filter === 'all' ? products : products.filter(p => p.gender === filter);
-  grid.innerHTML = filtered.map(p => `
-    <div class="product-card" data-id="${p.id}">
+
+  const filtered = filter === 'all'
+    ? products
+    : products.filter(product => product.gender === filter);
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `
+      <div style="padding:40px;font-size:13px;color:#9A8C7E;">
+        Товары не найдены.
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(product => `
+    <div class="product-card" data-id="${product.id}">
       <div class="product-img">
         <div class="product-img-inner">
-          <img
-            src="${p.img}"
-            alt="${p.name}"
-            style="width:100%;height:100%;object-fit:cover;display:block;"
-            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
-          />
-          <div class="product-placeholder" style="display:none;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;gap:10px;">
-            <svg width="40" height="56" viewBox="0 0 40 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <div
+            class="product-placeholder"
+            style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;gap:10px;"
+          >
+            <svg width="40" height="56" viewBox="0 0 40 56" fill="none">
               <rect x="14" y="0" width="12" height="5" rx="1.5" fill="#A07845" opacity="0.5"/>
               <rect x="16" y="5" width="8" height="8" rx="1" fill="#A07845" opacity="0.35"/>
               <path d="M12 13 Q12 18 9 21 L9 49 Q9 52 20 52 Q31 52 31 49 L31 21 Q28 18 28 13 Z" fill="rgba(160,120,69,0.10)" stroke="#A07845" stroke-width="0.8"/>
               <path d="M13 21 L13 47 Q13 50 20 50 Q27 50 27 47 L27 21 Z" fill="rgba(160,120,69,0.13)"/>
-              <rect x="13" y="30" width="14" height="14" rx="0.5" fill="rgba(160,120,69,0.07)" stroke="rgba(160,120,69,0.25)" stroke-width="0.5"/>
             </svg>
-            <span style="font-family:'Cormorant Garamond',serif;font-size:11px;color:#A07845;letter-spacing:2px;text-align:center;padding:0 12px;">${p.name}</span>
+
+            <span style="font-family:'Cormorant Garamond',serif;font-size:11px;color:#A07845;letter-spacing:2px;text-align:center;padding:0 12px;">
+              ${product.name}
+            </span>
           </div>
         </div>
-        ${p.tag ? `<span class="product-tag">${p.tag}</span>` : ''}
-        <button class="product-wishlist" title="Избранное">♡</button>
+
+        ${product.tag ? `<span class="product-tag">${product.tag}</span>` : ''}
       </div>
+
       <div class="product-info">
-        <div class="product-brand">${p.brand}</div>
-        <div class="product-name">${p.name}</div>
-        <div class="product-notes">${p.notes} · ${p.vol}</div>
+        <div class="product-brand">${product.brand}</div>
+        <div class="product-name">${product.name}</div>
+        <div class="product-notes">
+          ${product.notes}
+          ${product.available ? ` · В наличии: ${product.totalAvailable}` : ''}
+        </div>
+
         <div class="product-footer">
-          <div>
-            <span class="product-price">${formatPrice(p.price)}</span>
-            ${p.oldPrice ? `<span class="product-price-old">${formatPrice(p.oldPrice)}</span>` : ''}
-          </div>
-          <button class="add-btn" onclick="addToCart(${p.id}, event)" id="add-${p.id}">В корзину</button>
+          <span class="product-price">${formatPrice(product.price)}</span>
+
+          <button
+            class="add-btn"
+            id="add-${product.id}"
+            onclick="window.addToCart('${product.id}', event)"
+            ${product.available ? '' : 'disabled'}
+          >
+            ${product.available ? 'В корзину' : 'Нет в наличии'}
+          </button>
         </div>
       </div>
     </div>
@@ -1575,27 +1610,47 @@ function filterProducts(filter, btn) {
   renderProducts(filter);
 }
 
-function addToCart(id, e) {
+window.addToCart = function(id, e) {
   e.stopPropagation();
+
   const product = products.find(p => p.id === id);
+
+  if (!product) {
+    console.error('Товар не найден:', id);
+    return;
+  }
+
   const existing = cart.find(c => c.id === id);
+
   if (existing) {
+    if (existing.qty >= existing.totalAvailable) {
+      alert(`Доступно только ${existing.totalAvailable} шт.`);
+      return;
+    }
+
     existing.qty++;
   } else {
-    cart.push({ ...product, qty: 1 });
+    cart.push({
+      ...product,
+      qty: 1
+    });
   }
+
   const btn = document.getElementById('add-' + id);
+
   if (btn) {
     btn.textContent = 'Добавлено ✓';
     btn.classList.add('added');
+
     setTimeout(() => {
       btn.textContent = 'В корзину';
       btn.classList.remove('added');
     }, 1500);
   }
+
   updateCart();
   openCart();
-}
+}; 
 
 function removeFromCart(id) {
   cart = cart.filter(c => c.id !== id);
@@ -1603,11 +1658,24 @@ function removeFromCart(id) {
 }
 
 function changeQty(id, delta) {
-  const item = cart.find(c => c.id === id);
+  const item = cart.find(product => product.id === id);
+
   if (!item) return;
-  item.qty += delta;
-  if (item.qty <= 0) removeFromCart(id);
-  else updateCart();
+
+  const newQty = item.qty + delta;
+
+  if (newQty <= 0) {
+    removeFromCart(id);
+    return;
+  }
+
+  if (newQty > item.totalAvailable) {
+    alert(`Доступно только ${item.totalAvailable} шт.`);
+    return;
+  }
+
+  item.qty = newQty;
+  updateCart();
 }
 
 function updateCart() {
@@ -1633,12 +1701,12 @@ function updateCart() {
           <div class="cart-item-size">${c.vol}</div>
           <div class="cart-item-footer">
             <div class="qty-control">
-              <button class="qty-btn" onclick="changeQty(${c.id}, -1)">−</button>
+              <button class="qty-btn" onclick="changeQty('${c.id}', -1)">−</button>
               <span class="qty-value">${c.qty}</span>
-              <button class="qty-btn" onclick="changeQty(${c.id}, 1)">+</button>
+              <button class="qty-btn" onclick="changeQty('${c.id}', 1)">+</button>
             </div>
             <span class="cart-item-price">${formatPrice(c.price * c.qty)}</span>
-            <button class="cart-remove" onclick="removeFromCart(${c.id})">✕</button>
+            <button class="cart-remove" onclick="removeFromCart('${c.id}')">✕</button>
           </div>
         </div>
       </div>
@@ -1690,9 +1758,15 @@ document.querySelectorAll('button, a, .product-card, .filter-btn').forEach(el =>
 });
 
 // ─── INIT ───
-renderProducts('all');
+loadProducts();
 function goToCheckout() {
-    window.location.href = "checkout.html";
+  if (cart.length === 0) {
+    alert("Корзина пуста");
+    return;
+  }
+
+  localStorage.setItem("ohmysmell_cart", JSON.stringify(cart));
+  window.location.href = "checkout.html";
 }
 </script>
 </body>
